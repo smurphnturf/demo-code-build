@@ -6,7 +6,7 @@ env:
 phases:
   install:
     runtime-versions:
-      nodejs: 12
+      nodejs: 14
   pre_build:
     commands:
       - echo "Install dependencies"
@@ -18,3 +18,6 @@ phases:
       - echo "The package command will put the Lambda function code into S3"
       - echo "It will then create a new version of the template file with the S3 url to the source code"
       - echo "Learn more at https://docs.aws.amazon.com/lambda/latest/dg/serverless_app.html"
+      - pwd
+      - cd datalake
+      - npm test
