@@ -10,7 +10,7 @@ phases:
   pre_build:
     commands:
       - echo "Install dependencies"
-      - cd datalake
+      - cd datalake/code
       - npm install
   build:
     commands:
