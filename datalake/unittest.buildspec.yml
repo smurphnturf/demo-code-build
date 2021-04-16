@@ -18,6 +18,9 @@ phases:
       - LAST_COMMIT=$(git rev-parse HEAD~1)
       - git branch
       - git fetch --all
+      - git remote prune origin
+      - git branch
+      - git log
       - git diff "$LAST_COMMIT" ./package.json
       - minusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\-\s*\"version\"*')
       - plusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\+\s*\"version\"*') 
