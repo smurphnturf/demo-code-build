@@ -16,6 +16,8 @@ phases:
       - pwd
       - ls -a
       - LAST_COMMIT=$(git rev-parse HEAD~1)
+      - git branch
+      - git fetch --all
       - git diff "$LAST_COMMIT" ./package.json
       - minusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\-\s*\"version\"*')
       - plusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\+\s*\"version\"*') 
@@ -23,6 +25,7 @@ phases:
         if [[ ( "$minusversion" == 1 ) && ( "$plusversion" == 1 ) ]];
         then
             echo "npm publish"
+            aws codeartifact login --tool npm --domain data-lake --domain-owner 293952095306 --repository data-lake-delivery-module
             npm publish; else
             echo "Not a new version";
         fi
