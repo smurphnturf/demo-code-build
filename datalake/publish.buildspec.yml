@@ -22,5 +22,13 @@ phases:
       - plusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\+\s*\"version\"*') 
       - echo "minus version $minusversion"
       - echo "plusversion $plusversion"
+      - | 
+        if [[ ( "$minusversion" == 1 ) && ( "$plusversion" == 1 ) ]];
+        then
+            echo "npm publish"
+            npm publish; else
+            echo "Not a new version";
+        fi
+
 
       

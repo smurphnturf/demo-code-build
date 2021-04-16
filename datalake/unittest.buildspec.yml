@@ -13,3 +13,18 @@ phases:
     commands:
       - echo "Running npm test"
       - npm test
+      - pwd
+      - cd ../..
+      - ls -a
+      - LAST_COMMIT=$(git rev-parse HEAD~1)
+      - minusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\-\s*\"version\"*')
+      - plusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\+\s*\"version\"*') 
+      - echo "minus version $minusversion"
+      - echo "plusversion $plusversion"
+      - | 
+        if [[ ( "$minusversion" == 1 ) && ( "$plusversion" == 1 ) ]];
+        then
+            echo "npm publish"
+            npm publish; else
+            echo "Not a new version";
+        fi
