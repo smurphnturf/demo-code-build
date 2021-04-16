@@ -1,8 +1,6 @@
 version: 0.2
 env:
-  variables:
-    DIST_FOLDER: "dist"
-    BUILD_ENV: "dev"
+  git-credential-helper: yes
 phases:
   install:
     runtime-versions:
