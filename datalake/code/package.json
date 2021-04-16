@@ -1,6 +1,6 @@
 {
   "name": "@slyp/datalake",
-  "version": "1.0.13",
+  "version": "1.0.999",
   "description": "",
   "main": "index.js",
   "scripts": {
