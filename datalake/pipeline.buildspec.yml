@@ -12,11 +12,17 @@ phases:
       - echo "Install dependencies"
       - cd datalake/code
       - npm install
+      - npm test
   build:
     commands:
-      - echo "Doing a SAM translation on sample.yaml"
-      - echo "The package command will put the Lambda function code into S3"
-      - echo "It will then create a new version of the template file with the S3 url to the source code"
-      - echo "Learn more at https://docs.aws.amazon.com/lambda/latest/dg/serverless_app.html"
+      - ls -a
       - pwd
-      - npm test
+      - cd ../..
+      - ls -a
+      - LAST_COMMIT=$(git rev-parse HEAD~1)
+      - minusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\-\s*\"version\"*')
+      - plusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\+\s*\"version\"*') 
+      - echo "minus version $minusversion"
+      - echo "plusversion $plusversion"
+
+      
