@@ -1,0 +1,32 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      nodejs: 12
+  pre_build:
+    commands:
+      - echo "Install dependencies"
+      - cd datalake/code
+      - npm install
+      - npm test
+  build:
+    commands:
+      - LAST_COMMIT=$(git rev-parse HEAD~1)
+      - GIT_DIFF=$(git diff "$LAST_COMMIT" ./package.json)
+      - |
+        if [ ! -z "$GIT_DIFF" ] ; then
+            minusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\-\s*\"version\"*')
+            plusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\+\s*\"version\"*')
+            if [ "$minusversion" = "1" ] && [ "$plusversion" = "1"  ] ; then
+                echo "npm publish"
+                aws codeartifact login --tool npm --domain data-lake --domain-owner 293952095306 --repository data-lake-delivery-module
+                npm publish; 
+            else
+                echo "Not a new version minus $minusversion and plus $plusversion";
+            fi
+        else
+          echo "No git diff for ./package.json to compare"
+        fi
+
+
+      
