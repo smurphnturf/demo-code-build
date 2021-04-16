@@ -11,22 +11,21 @@ phases:
       - npm test
   build:
     commands:
-      - ls -a
-      - pwd
-      - cd ../..
-      - ls -a
       - LAST_COMMIT=$(git rev-parse HEAD~1)
-      - minusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\-\s*\"version\"*')
-      - plusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\+\s*\"version\"*') 
-      - echo "minus version $minusversion"
-      - echo "plusversion $plusversion"
-      - | 
-        if [[ ( "$minusversion" == 1 ) && ( "$plusversion" == 1 ) ]];
-        then
-            echo "npm publish"
-            aws codeartifact login --tool npm --domain my_domain --domain-owner 111122223333 --repository my_repo
-            npm publish; else
-            echo "Not a new version";
+      - GIT_DIFF=$(git diff "$LAST_COMMIT" ./package.json)
+      - |
+        if [ ! -z "$GIT_DIFF" ] ; then
+            minusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\-\s*\"version\"*')
+            plusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\+\s*\"version\"*')
+            if [ "$minusversion" = "1" ] && [ "$plusversion" = "1"  ] ; then
+                echo "npm publish"
+                aws codeartifact login --tool npm --domain data-lake --domain-owner 293952095306 --repository data-lake-delivery-module
+                npm publish; 
+            else
+                echo "Not a new version minus $minusversion and plus $plusversion";
+            fi
+        else
+          echo "No git diff for ./package.json to compare"
         fi
 
 
