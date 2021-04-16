@@ -16,12 +16,16 @@ phases:
       - LAST_COMMIT=$(git rev-parse HEAD~1)
       - GIT_DIFF=$(git diff "$LAST_COMMIT" ./package.json)
       - echo "git diff $GIT_DIFF"
-      - minusversion=$($GIT_DIFF | grep -c '\-\s*\"version\"*')
-      - plusversion=$($GIT_DIFF | grep -c '\+\s*\"version\"*') 
-      - | 
-        if [ ( "$minusversion" == 1 ) && ( "$plusversion" == 1 ) ] ; then
-            echo "npm publish"
-            aws codeartifact login --tool npm --domain data-lake --domain-owner 293952095306 --repository data-lake-delivery-module
-            npm publish; else
-            echo "Not a new version";
+      - |
+        if [ ! -z "$GIT_DIFF" ] ; then
+            minusversion=$($GIT_DIFF | grep -c '\-\s*\"version\"*')
+            plusversion=$($GIT_DIFF | grep -c '\+\s*\"version\"*')
+            if [ ( "$minusversion" == 1 ) && ( "$plusversion" == 1 ) ] ; then
+                echo "npm publish"
+                aws codeartifact login --tool npm --domain data-lake --domain-owner 293952095306 --repository data-lake-delivery-module
+                npm publish; else
+                echo "Not a new version";
+            fi
+        else
+          echo "No git diff for ./package.json to compare"
         fi
