@@ -14,7 +14,6 @@ phases:
       - echo "Running npm test"
       - npm test
       - pwd
-      - cd ../..
       - ls -a
       - LAST_COMMIT=$(git rev-parse HEAD~1)
       - minusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\-\s*\"version\"*')
