@@ -13,17 +13,11 @@ phases:
     commands:
       - echo "Running npm test"
       - npm test
-      - pwd
-      - ls -a
       - LAST_COMMIT=$(git rev-parse HEAD~1)
-      - git branch
-      - git fetch --all
-      - git remote prune origin
-      - git branch
-      - git log
-      - git diff "$LAST_COMMIT" ./package.json
-      - minusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\-\s*\"version\"*')
-      - plusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\+\s*\"version\"*') 
+      - GIT_DIFF=$(git diff "$LAST_COMMIT" ./package.json)
+      - echo "git diff $GIT_DIFF"
+      - minusversion=$($GIT_DIFF | grep -c '\-\s*\"version\"*')
+      - plusversion=$($GIT_DIFF | grep -c '\+\s*\"version\"*') 
       - | 
         if [ ( "$minusversion" == 1 ) && ( "$plusversion" == 1 ) ] ; then
             echo "npm publish"
