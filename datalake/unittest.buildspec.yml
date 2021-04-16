@@ -18,8 +18,7 @@ phases:
         if [ ! -z "$GIT_DIFF" ] ; then
             minusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\-\s*\"version\"*')
             plusversion=$(git diff "$LAST_COMMIT" ./package.json | grep -c '\+\s*\"version\"*')
-            type(minusversion)
-            if [ "$minusversion" = 1  && "$plusversion" = 1  ]; then
+            if [ "$minusversion" = "1" ] && [ "$plusversion" = "1"  ] ; then
                 echo "npm publish"
                 aws codeartifact login --tool npm --domain data-lake --domain-owner 293952095306 --repository data-lake-delivery-module
                 npm publish; 
