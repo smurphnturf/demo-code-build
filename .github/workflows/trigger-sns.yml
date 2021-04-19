@@ -1,0 +1,29 @@
+name: Watch release branches
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+      - release/*
+
+jobs:
+
+  deploy:
+    needs: job1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.ACCESS_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ACCESS_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-2
+          role-to-assume: arn:aws:iam::293952095306:role/account-deployer
+          role-duration-seconds: 7200
+      - name: Publish SNS Topic
+        uses: nothingalike/sns-publish-topic@v1.6
+        with:
+          MESSAGE: "User ${{ github.actor }} attempted to build branch ${{ github.ref }}"
+          TOPIC_ARN: "arn:aws:sns:ap-southeast-2:293952095306:Setup-Pipeline-PipelineSNSTopic-1K4LMEJHA4FB"

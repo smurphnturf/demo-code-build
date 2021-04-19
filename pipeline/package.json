@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Sample project to be committed to the CodeCommit repo created for the Quick Start",
   "stackname": "sample-project",
-  "samtemplate": "sample.yaml",
-  "cftemplate": "sample-transformed.yaml",
+  "samtemplate": "sample.yml",
+  "cftemplate": "sample-transformed.yml",
   "scripts": {
     "start": "node code/handler.js",
     "test": "echo \"Error: no test specified\" && exit 1",
