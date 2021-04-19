@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Create Lambda Function
+Resources:
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: LambdaRole
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AWSLambda_FullAccess
+      - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
+      - arn:aws:iam::aws:policy/AWSCodePipelineFullAccess
+      Path: /
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CodePipelineRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AWSCodePipelineFullAccess
+      - arn:aws:iam::aws:policy/AWSCodeCommitFullAccess
+      - arn:aws:iam::aws:policy/AWSCodeBuildDeveloperAccess
+      - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - codepipeline.amazonaws.com
+          Action:
+          - sts:AssumeRole
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CodeBuildRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AdministratorAccess
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - codebuild.amazonaws.com
+          Action:
+          - sts:AssumeRole
+  TemplateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: ${AWS::AccountId}-templates
+  TemplateBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: TemplateBucket
+      PolicyDocument:
+        Statement:
+        - Action:
+          - s3:*
+          Effect: Allow
+          Resource:
+          - Fn::Sub: arn:aws:s3:::${TemplateBucket}
+          - Fn::Sub: arn:aws:s3:::${TemplateBucket}/*
+          Principal:
+            AWS:
+            - Fn::Sub: arn:aws:iam::${AWS::AccountId}:root
+  PipelineSNSTopic:
+    Type: AWS::SNS::Topic
+  LambdaCreatePipelineSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn:
+        Ref: PipelineSNSTopic
+      Endpoint:
+        Fn::GetAtt:
+        - CreatePipeline
+        - Arn
+      Protocol: lambda
+  CreatePipeline:
+    DependsOn: LambdaRole
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: CreatePipeline
+      Handler: index.lambda_handler
+      Role:
+        Fn::GetAtt:
+        - LambdaRole
+        - Arn
+      Runtime: python3.6
+      Timeout: 25
+      InlineCode: "import boto3\nimport json\ndef lambda_handler(event, context):\n\
+        \    print(json.dumps(event))\n    Region=event['region']\n    Account = event['account']\n\
+        \    RepositoryName = event['detail']['repositoryName']\n    NewBranch = event['detail']['referenceName']\n\
+        \    Event = event['detail']['event']\n    if NewBranch == \"master\":\n \
+        \      quit()\n    if Event == \"referenceCreated\":\n      cf_client = boto3.client('cloudformation')\n\
+        \      cf_client.create_stack(\n          StackName= f'Pipeline-{RepositoryName}-{NewBranch}',\n\
+        \          TemplateURL= f'https://s3.amazonaws.com/{Account}-templates/TemplatePipeline.yml',\n\
+        \          Parameters=[\n              {\n                  'ParameterKey':\
+        \ 'RepositoryName',\n                  'ParameterValue': RepositoryName,\n\
+        \                  'UsePreviousValue': False\n              },\n         \
+        \     {\n                  'ParameterKey': 'BranchName',\n               \
+        \   'ParameterValue': NewBranch,\n                  'UsePreviousValue': False\n\
+        \              }\n          ],\n          OnFailure='ROLLBACK',\n        \
+        \  Capabilities=['CAPABILITY_NAMED_IAM']\n      )\n    else:\n      cf_client\
+        \ = boto3.client('cloudformation')\n      cf_client.delete_stack(\n      \
+        \    StackName= f'Pipeline-{RepositoryName}-{NewBranch}'\n        )\n"
