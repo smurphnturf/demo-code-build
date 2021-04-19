@@ -23,7 +23,7 @@ jobs:
       - name: Publish SNS Topic
         uses: nothingalike/sns-publish-topic@v1.6
         with:
-          MESSAGE: "User ${{ github.actor }} attempted to build branch ${{ github.ref }}"
+          MESSAGE: "Repo: ${{ github.repository }} attempted to build ref |${{ github.ref }}| into base_Ref ${{ github.base_ref }}"
           TOPIC_ARN: "arn:aws:sns:ap-southeast-2:293952095306:Setup-Pipeline-PipelineSNSTopic-1K4LMEJHA4FB"
         env:
           AWS_REGION: ap-southeast-2

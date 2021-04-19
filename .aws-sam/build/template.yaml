@@ -1,118 +1,200 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Transform: AWS::Serverless-2016-10-31
-Description: Create Lambda Function
+Description: Pipeline Template
+Parameters:
+  RepositoryName:
+    Type: String
+  BranchName:
+    Type: String
+    Default: master
+  Setup:
+    Type: String
+    Default: false
+Conditions:
+  BranchMaster:
+    Fn::Equals:
+    - Ref: BranchName
+    - master
+  BranchDevelop:
+    Fn::Equals:
+    - Ref: BranchName
+    - develop
+  Setup:
+    Fn::Equals:
+    - Ref: Setup
+    - true
 Resources:
-  LambdaRole:
-    Type: AWS::IAM::Role
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
     Properties:
-      RoleName: LambdaRole
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - lambda.amazonaws.com
-          Action:
-          - sts:AssumeRole
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/AWSLambda_FullAccess
-      - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
-      - arn:aws:iam::aws:policy/AWSCodePipelineFullAccess
-      Path: /
-  CodePipelineRole:
-    Type: AWS::IAM::Role
+      Name:
+        Fn::Join:
+        - '-'
+        - - Ref: RepositoryName
+          - Ref: BranchName
+      RoleArn:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/CodePipelineRole
+      ArtifactStore:
+        Type: S3
+        Location:
+          Fn::Sub: ${AWS::AccountId}-templates
+      Stages:
+      - Name: Source
+        Actions:
+        - Name: App
+          ActionTypeId:
+            Category: Source
+            Owner: ThirdParty
+            Provider: GitHub
+            Version: '1'
+          Configuration:
+            Owner: smurphnturf
+            Repo:
+              Ref: RepositoryName
+            Branch:
+              Ref: BranchName
+            OAuthToken: '{{resolve:secretsmanager:poc-github-personal-access-token-code-build}}'
+          OutputArtifacts:
+          - Name: Source
+          RunOrder: 1
+      - Name: Continuous-Integration
+        Actions:
+        - Name: CI-Action
+          ActionTypeId:
+            Category: Build
+            Owner: AWS
+            Version: '1'
+            Provider: CodeBuild
+          OutputArtifacts:
+          - Name: CIAction
+          InputArtifacts:
+          - Name: Source
+          Configuration:
+            ProjectName:
+              Fn::Join:
+              - '-'
+              - - Ref: RepositoryName
+                - CIAction
+          RunOrder: 1
+      - Fn::If:
+        - BranchDevelop
+        - Name: Deploy-Dev
+          Actions:
+          - Name: CDActionDev
+            ActionTypeId:
+              Category: Build
+              Owner: AWS
+              Version: '1'
+              Provider: CodeBuild
+            InputArtifacts:
+            - Name: Source
+            OutputArtifacts:
+            - Name: CDActionDev
+            Configuration:
+              ProjectName:
+                Fn::Join:
+                - '-'
+                - - Ref: RepositoryName
+                  - CDActionDev
+            RunOrder: 1
+        - Ref: AWS::NoValue
+      - Fn::If:
+        - BranchMaster
+        - Name: Deploy-Prod
+          Actions:
+          - Name: CDActionProd
+            ActionTypeId:
+              Category: Build
+              Owner: AWS
+              Version: '1'
+              Provider: CodeBuild
+            InputArtifacts:
+            - Name: Source
+            OutputArtifacts:
+            - Name: CDActionProd
+            Configuration:
+              ProjectName:
+                Fn::Join:
+                - '-'
+                - - Ref: RepositoryName
+                  - CDActionProd
+            RunOrder: 2
+        - Ref: AWS::NoValue
+  CIAction:
+    Condition: Setup
+    Type: AWS::CodeBuild::Project
     Properties:
-      RoleName: CodePipelineRole
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/AWSCodePipelineFullAccess
-      - arn:aws:iam::aws:policy/AWSCodeCommitFullAccess
-      - arn:aws:iam::aws:policy/AWSCodeBuildDeveloperAccess
-      - arn:aws:iam::aws:policy/AmazonS3FullAccess
-      Path: /
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - codepipeline.amazonaws.com
-          Action:
-          - sts:AssumeRole
-  CodeBuildRole:
-    Type: AWS::IAM::Role
+      Name:
+        Fn::Join:
+        - '-'
+        - - Ref: RepositoryName
+          - CIAction
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec/CIAction.yml
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        EnvironmentVariables:
+        - Name: BranchName
+          Value:
+            Ref: BranchName
+      Artifacts:
+        Type: CODEPIPELINE
+      ServiceRole:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/CodeBuildRole
+      TimeoutInMinutes: 10
+  CDActionDev:
+    Condition: Setup
+    Type: AWS::CodeBuild::Project
     Properties:
-      RoleName: CodeBuildRole
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/AdministratorAccess
-      Path: /
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - codebuild.amazonaws.com
-          Action:
-          - sts:AssumeRole
-  TemplateBucket:
-    Type: AWS::S3::Bucket
+      Name:
+        Fn::Join:
+        - '-'
+        - - Ref: RepositoryName
+          - CDActionDev
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec/CDAction.yml
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        EnvironmentVariables:
+        - Name: pipeline_environment
+          Value: DEV
+        - Name: BranchName
+          Value:
+            Ref: BranchName
+      Artifacts:
+        Type: CODEPIPELINE
+      ServiceRole:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/CodeBuildRole
+      TimeoutInMinutes: 10
+  CDActionProd:
+    Condition: Setup
+    Type: AWS::CodeBuild::Project
     Properties:
-      BucketName:
-        Fn::Sub: ${AWS::AccountId}-templates
-  TemplateBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket:
-        Ref: TemplateBucket
-      PolicyDocument:
-        Statement:
-        - Action:
-          - s3:*
-          Effect: Allow
-          Resource:
-          - Fn::Sub: arn:aws:s3:::${TemplateBucket}
-          - Fn::Sub: arn:aws:s3:::${TemplateBucket}/*
-          Principal:
-            AWS:
-            - Fn::Sub: arn:aws:iam::${AWS::AccountId}:root
-  PipelineSNSTopic:
-    Type: AWS::SNS::Topic
-  LambdaCreatePipelineSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      TopicArn:
-        Ref: PipelineSNSTopic
-      Endpoint:
-        Fn::GetAtt:
-        - CreatePipeline
-        - Arn
-      Protocol: lambda
-  CreatePipeline:
-    DependsOn: LambdaRole
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: CreatePipeline
-      Handler: index.lambda_handler
-      Role:
-        Fn::GetAtt:
-        - LambdaRole
-        - Arn
-      Runtime: python3.6
-      Timeout: 25
-      InlineCode: "import boto3\nimport json\ndef lambda_handler(event, context):\n\
-        \    print(json.dumps(event))\n    Region=event['region']\n    Account = event['account']\n\
-        \    RepositoryName = event['detail']['repositoryName']\n    NewBranch = event['detail']['referenceName']\n\
-        \    Event = event['detail']['event']\n    if NewBranch == \"master\":\n \
-        \      quit()\n    if Event == \"referenceCreated\":\n      cf_client = boto3.client('cloudformation')\n\
-        \      cf_client.create_stack(\n          StackName= f'Pipeline-{RepositoryName}-{NewBranch}',\n\
-        \          TemplateURL= f'https://s3.amazonaws.com/{Account}-templates/TemplatePipeline.yml',\n\
-        \          Parameters=[\n              {\n                  'ParameterKey':\
-        \ 'RepositoryName',\n                  'ParameterValue': RepositoryName,\n\
-        \                  'UsePreviousValue': False\n              },\n         \
-        \     {\n                  'ParameterKey': 'BranchName',\n               \
-        \   'ParameterValue': NewBranch,\n                  'UsePreviousValue': False\n\
-        \              }\n          ],\n          OnFailure='ROLLBACK',\n        \
-        \  Capabilities=['CAPABILITY_NAMED_IAM']\n      )\n    else:\n      cf_client\
-        \ = boto3.client('cloudformation')\n      cf_client.delete_stack(\n      \
-        \    StackName= f'Pipeline-{RepositoryName}-{NewBranch}'\n        )\n"
+      Name:
+        Fn::Join:
+        - '-'
+        - - Ref: RepositoryName
+          - CDActionProd
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec/CDAction.yml
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        EnvironmentVariables:
+        - Name: pipeline_environment
+          Value: PROD
+        - Name: BranchName
+          Value:
+            Ref: BranchName
+      Artifacts:
+        Type: CODEPIPELINE
+      ServiceRole:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/CodeBuildRole
+      TimeoutInMinutes: 10

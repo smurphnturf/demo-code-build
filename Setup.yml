@@ -37,6 +37,7 @@ Resources:
         - arn:aws:iam::aws:policy/AWSLambda_FullAccess
         - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
         - arn:aws:iam::aws:policy/AWSCodePipelineFullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Path: /
 
 
@@ -126,26 +127,38 @@ Resources:
       Endpoint: !GetAtt CreatePipeline.Arn
       Protocol: lambda
 
+  AllowSNSInvocationInvocation:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt CreatePipeline.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref PipelineSNSTopic
+
   CreatePipeline:
     DependsOn: LambdaRole
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: CreatePipeline
       Handler: "index.lambda_handler"
+      Tracing: Active
       Role: !GetAtt LambdaRole.Arn
       Runtime: "python3.6"
       Timeout: 25
       InlineCode: |
           import boto3
           import json
+          import os
           def lambda_handler(event, context):
               print(json.dumps(event))
-              Region=event['region']
-              Account = event['account']
-              RepositoryName = event['detail']['repositoryName']
-              NewBranch = event['detail']['referenceName']
-              Event = event['detail']['event']
+              print(json.dumps(event['sns']['Message']))
+              Region = os.environ['AWS_REGION']
+              Account = '293952095306'
+              RepositoryName = 'demo-code-build'
+              NewBranch = event['sns']['Message'].split("|")[1].split("/")[2]
+              Event = 'referenceCreated'
               if NewBranch == "master":
+                 print('quiting because we dont build master')
                  quit()
               if Event == "referenceCreated":
                 cf_client = boto3.client('cloudformation')
