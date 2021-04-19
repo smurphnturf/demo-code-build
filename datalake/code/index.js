@@ -4,7 +4,7 @@ const firehose = new AWS.Firehose();
 const kinesis = new AWS.Kinesis();
 const sqs = new AWS.SQS();
 
-// test demo 6
+// test demo 11
 // A record to be logged in the data lake.
 class DataRecord {
   constructor() {
