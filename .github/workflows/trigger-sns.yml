@@ -1,4 +1,4 @@
-name: Watch release branches
+name: Trigger codepipeline SNS
 
 on:
   workflow_dispatch:
@@ -10,7 +10,6 @@ on:
 jobs:
 
   deploy:
-    needs: job1
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
